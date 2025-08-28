@@ -145,20 +145,13 @@ body{
   gap:2px;
   padding:2px 4px;
   border-radius:16px;
-  background: rgba(255,255,255,.35); /* semi-transp. lisible sur la swatch */
-  margin:0 8px;                    
+  background: rgba(255,255,255,.35); /* semi-transp. lisible sur la swatch */                
 }
 
 .a11y-side{
   display:inline-flex;
   align-items:center;
   gap:1px;
-}
-
-.a11y-sep{
-  width:1px;
-  height:16px;
-  background: rgba(0,0,0,.15);
 }
 
 .a11y-dot{
@@ -183,6 +176,18 @@ body{
 
 .a11y-ic.ok{ color:#188a5a; }  /* vert */
 .a11y-ic.ko{ color:#d35454; }  /* rouge */
+
+/* Couleur forcée des ratios : noir (gauche) / blanc (droite) */
+.a11y-pill .a11y-side:first-child .a11y-r { 
+  color: #000; 
+    text-shadow: 0 0 1px rgba(255,255,255,.48);
+}
+
+.a11y-pill .a11y-side:last-child .a11y-r { 
+  color: #fff; 
+  /* optionnel : un léger contour pour lisibilité sur clair */
+  text-shadow: 0 0 1px rgba(0,0,0,.48);
+}
 
 
 /* --------------------------------------------------------------------------

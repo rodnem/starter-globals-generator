@@ -88,9 +88,6 @@ function A11yPill({ hex }: { hex: string }) {
         <span className={`a11y-ic ${passT(rBlack) ? "ok" : "ko"}`}>T</span>
         <span className={`a11y-ic ${passN(rBlack) ? "ok" : "ko"}`}>☰</span>
       </div>
-
-      <div className="a11y-sep" />
-
       <div className="a11y-side">
         {/* <span
           className="a11y-dot"
@@ -104,6 +101,7 @@ function A11yPill({ hex }: { hex: string }) {
     </div>
   )
 }
+
 
 
 /** ----- Parse le CSS envoyé par le main en palettes ----- */
