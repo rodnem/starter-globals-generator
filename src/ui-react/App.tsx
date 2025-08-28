@@ -36,6 +36,42 @@ function bestOn(bg: string) {
   return cb >= cw ? "#000000" : "#ffffff"
 }
 
+function A11yPill({ hex }: { hex: string }) {
+  const rBlack = Number(contrastRatio(hex, "#000000").toFixed(2))
+  const rWhite = Number(contrastRatio(hex, "#ffffff").toFixed(2))
+
+  // Seuils WCAG AA
+  const passG = (r: number) => r >= 3.0   // ◈ Graphismes / UI
+  const passT = (r: number) => r >= 3.0   // T Texte large
+  const passN = (r: number) => r >= 4.5   // ☰ Texte normal
+
+  return (
+    <div className="a11y-pill" aria-label="Vérification de contraste">
+      <div className="a11y-side">
+        {/* <span className="a11y-dot" style={{ background: "#000" }} /> */}
+        <span className="a11y-r">{rBlack.toFixed(2)}</span>
+        <span className={`a11y-ic ${passG(rBlack) ? "ok" : "ko"}`}>◈</span>
+        <span className={`a11y-ic ${passT(rBlack) ? "ok" : "ko"}`}>T</span>
+        <span className={`a11y-ic ${passN(rBlack) ? "ok" : "ko"}`}>☰</span>
+      </div>
+
+      <div className="a11y-sep" />
+
+      <div className="a11y-side">
+        {/* <span
+          className="a11y-dot"
+          style={{ background: "#fff", outline: "1px solid rgba(0,0,0,.35)" }}
+        /> */}
+        <span className="a11y-r">{rWhite.toFixed(2)}</span>
+        <span className={`a11y-ic ${passG(rWhite) ? "ok" : "ko"}`}>◈</span>
+        <span className={`a11y-ic ${passT(rWhite) ? "ok" : "ko"}`}>T</span>
+        <span className={`a11y-ic ${passN(rWhite) ? "ok" : "ko"}`}>☰</span>
+      </div>
+    </div>
+  )
+}
+
+
 /** ----- Parse le CSS envoyé par le main en palettes ----- */
 function parseCssToPalettes(css: string) {
   // css attendu: ":root{--c1-25:#xxxxxx;--c1-50:#xxxxxx;...--neutral-950:#xxxxxx}"
@@ -77,23 +113,31 @@ function CardHead({
 }
 
 
-function SwatchRow({ label, hex, onCopy }: { label: number; hex?: string; onCopy: (h: string) => void }) {
+function SwatchRow({
+  label,
+  hex,
+  onCopy,
+}: {
+  label: number
+  hex?: string
+  onCopy: (h: string) => void
+}) {
   const v = hex || "#eeeeee"
   const text = bestOn(v)
-  const rB = contrastRatio(v, "#000000")
-  const rW = contrastRatio(v, "#ffffff")
-  const useBlack = rB >= rW
-  const ratio = (useBlack ? rB : rW).toFixed(2)
-  const dot = useBlack ? "#000000" : "#ffffff"
 
   return (
-    <div className="sw-row" style={{ background: v, color: text }} onClick={() => onCopy(v)} title={`${label} ${v}`}>
+    <div
+      className="sw-row"
+      style={{ background: v, color: text }}
+      onClick={() => onCopy(v)}
+      title={`${label} ${v}`}
+    >
       <div className="sw-name">{label}</div>
-      <div className="sw-badge">
-        <span className="sw-dot" style={{ background: dot }} />
-        <span>{ratio}</span>
-      </div>
       <div className="sw-hex">{v.toUpperCase()}</div>
+      {/* Capsule WCAG centrée */}
+      <A11yPill hex={v} />
+
+      
     </div>
   )
 }
@@ -110,38 +154,27 @@ function ColumnCard({
 }) {
   return (
     <div className="col-card">
-      <CardHead title={title} value={value} readOnly={readOnly} onChange={onChange} subtitle={subtitle} />
+      <CardHead
+        title={title}
+        value={value}
+        readOnly={readOnly}
+        onChange={onChange}
+        subtitle={subtitle}
+      />
       <div>
         {STEPS.map((s) => (
-          <div key={s}
-            className="sw-row"
-            style={{ background: palette?.[s] || "#eee", color: bestOn(palette?.[s] || "#eee") }}
-            onClick={() => navigator.clipboard?.writeText((palette?.[s] || "#eee").toUpperCase())}
-            title={`${s} ${(palette?.[s] || "#eee").toUpperCase()}`}
-          >
-            <div className="sw-name">{s}</div>
-            {/* badge contraste */}
-            <div className="sw-badge">
-              {(() => {
-                const v = palette?.[s] || "#eeeeee"
-                const rB = contrastRatio(v, "#000000")
-                const rW = contrastRatio(v, "#ffffff")
-                const useBlack = rB >= rW
-                return (
-                  <>
-                    <span className="sw-dot" style={{ background: useBlack ? "#000" : "#fff" }} />
-                    <span className="sw-ratio">{(useBlack ? rB : rW).toFixed(2)}</span>
-                  </>
-                )
-              })()}
-            </div>
-            <div className="sw-hex">{(palette?.[s] || "#eeeeee").toUpperCase()}</div>
-          </div>
+          <SwatchRow
+            key={s}
+            label={s}
+            hex={palette?.[s] || "#eeeeee"}
+            onCopy={(h) => navigator.clipboard?.writeText(h.toUpperCase())}
+          />
         ))}
       </div>
     </div>
   )
 }
+
 
 
 /** ----- App (UI only) ----- */

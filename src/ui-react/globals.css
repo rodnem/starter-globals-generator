@@ -108,13 +108,14 @@ body{
    -------------------------------------------------------------------------- */
 .sw-row{
   display:flex; align-items:center;
-  height:32px; padding:0 12px;
+  height:32px; padding:0 8px;
   cursor:pointer; user-select:none;
+  justify-content: space-between;
 }
 .sw-row + .sw-row{ border-top:1px solid rgba(0,0,0,.06) }
 
 /* Libellé (niveau) en gras */
-.sw-name{ width:80px; font-weight:700 }
+.sw-name{ font-weight:700 }
 
 /* Badge contraste (• + ratio) */
 .sw-badge{
@@ -132,4 +133,53 @@ body{
 .sw-ratio{ font-size:8px; font-weight:400; line-height:10px }
 
 /* Valeur hex à droite : plus petit, régulier */
-.sw-hex{ margin-left:auto; font-size:10px; font-weight:400 }
+.sw-hex{ font-size:10px; font-weight:400 }
+
+
+/* =========================================================
+   Capsule d’accessibilité WCAG (◈  T  ☰) - milieu de ligne
+   ========================================================= */
+.a11y-pill{
+  display:inline-flex;
+  align-items:center;
+  gap:2px;
+  padding:2px 4px;
+  border-radius:16px;
+  background: rgba(255,255,255,.35); /* semi-transp. lisible sur la swatch */
+  margin:0 8px;                    
+}
+
+.a11y-side{
+  display:inline-flex;
+  align-items:center;
+  gap:1px;
+}
+
+.a11y-sep{
+  width:1px;
+  height:16px;
+  background: rgba(0,0,0,.15);
+}
+
+.a11y-dot{
+  width:10px;
+  height:10px;
+  border-radius:999px;
+  display:inline-block;
+  outline:1px solid rgba(0,0,0,.25);
+}
+
+.a11y-r{
+  font-size:10px;
+  font-weight:400;
+  line-height:1;
+}
+
+.a11y-ic{
+  font-size:10px;
+  line-height:1;
+  letter-spacing:.25px;
+}
+
+.a11y-ic.ok{ color:#188a5a; }  /* vert */
+.a11y-ic.ko{ color:#d35454; }  /* rouge */
