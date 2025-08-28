@@ -1,0 +1,135 @@
+/* --------------------------------------------------------------------------
+   Material Icons (UI only) – utilisé pour l’icône "refresh" du bouton
+   -------------------------------------------------------------------------- */
+@import url("https://fonts.googleapis.com/icon?family=Material+Icons");
+
+/* --------------------------------------------------------------------------
+   Variables & reset de base
+   -------------------------------------------------------------------------- */
+:root{
+  --text:#111827;
+  --muted:#6b7280;
+  --border:rgba(0,0,0,.12);
+}
+
+*{ box-sizing:border-box }
+html,body{ height:100% }
+body{
+  margin:0;
+  /* garde la taille courante (10px) pour ne rien changer au rendu */
+  font:10px/1.4 ui-sans-serif,-apple-system,Segoe UI,Roboto,Helvetica,Arial;
+}
+
+.ui-wrap{ padding:12px }
+
+/* --------------------------------------------------------------------------
+   En-tête (brand row) : 🌱 + titre + bouton à droite
+   -------------------------------------------------------------------------- */
+.brand-row{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:12px; margin-bottom:12px;
+}
+.brand-left{ display:flex; align-items:center; gap:8px }
+.sprout{ font-size:18px; line-height:1 }
+.brand{ font-weight:700; font-size:16px }
+.muted{ font-size:12px; color:var(--muted) }
+
+/* Bouton générique */
+.btn{
+  display:inline-flex; align-items:center; justify-content:center;
+  height:32px; padding:0 12px;
+  border:1px solid var(--border);
+  border-radius:8px; background:#fff; color:#111;
+  cursor:pointer; user-select:none;
+}
+.btn:hover{ background:#f7f7f7 }
+.btn:active{ transform:translateY(1px) }
+
+/* Variante inversée (fond noir, texte blanc) pour "Replace variables" */
+.btn--invert{
+  background:#000; color:#fff; border-color:#000;
+}
+.btn--invert:hover{ background:#111 }
+.btn--invert:active{ transform:translateY(1px) }
+
+/* Icônes Material */
+.material-icons{
+  font-family:'Material Icons'; font-weight:normal; font-style:normal;
+  display:inline-block; line-height:1;
+}
+.mi-16{ font-size:16px; margin-right:6px; vertical-align:-2px }
+
+/* --------------------------------------------------------------------------
+   Grille 4 colonnes
+   -------------------------------------------------------------------------- */
+.grid{ display:grid }
+.grid-4{ grid-template-columns:repeat(4, minmax(0,1fr)) }
+.gap-3{ gap:12px }
+
+/* --------------------------------------------------------------------------
+   Carte colonne (palette)
+   -------------------------------------------------------------------------- */
+.col-card{
+  border:1px solid var(--border);
+  border-radius:8px;
+  overflow:hidden;
+  background:#fff;
+}
+
+/* --------------------------------------------------------------------------
+   En-tête coloré de colonne
+   -------------------------------------------------------------------------- */
+.card-head{
+  display:flex; align-items:center; justify-content:space-between;
+  gap:10px; padding:10px 12px;
+  /* garde la hauteur minimale actuelle */
+  min-height:80px;
+}
+.head-left{ display:flex; flex-direction:column; gap:4px }
+.head-title{ font-weight:700; font-size:14px; line-height:1.2 }
+
+/* Sous-titre (ex: "(max. 2% C1 500)") – taille volontairement à 8px */
+.head-sub{ font-size:8px; font-weight:400; opacity:.95; line-height:1.4 }
+
+/* Champ hex dans le head : largeur exacte 72px, pas de min-width */
+.head-input{
+  width:72px; min-width:0;
+  height:28px; padding:0 6px;
+  border:1px solid var(--border); border-radius:8px;
+  background:#fff; color:#111;
+}
+.head-input--ro{
+  /* lecture seule visuellement neutre, inchangé */
+  pointer-events:none; background-color:rgba(255,255,255,.25)!important;
+}
+
+/* --------------------------------------------------------------------------
+   Lignes de nuancier
+   -------------------------------------------------------------------------- */
+.sw-row{
+  display:flex; align-items:center;
+  height:32px; padding:0 12px;
+  cursor:pointer; user-select:none;
+}
+.sw-row + .sw-row{ border-top:1px solid rgba(0,0,0,.06) }
+
+/* Libellé (niveau) en gras */
+.sw-name{ width:80px; font-weight:700 }
+
+/* Badge contraste (• + ratio) */
+.sw-badge{
+  display:inline-flex; align-items:center; gap:2px;
+  background:rgba(255,255,255,.35);
+  border-radius:999px; padding:2px 4px;
+}
+.sw-dot{
+  width:10px; height:10px;
+  border-radius:999px;
+  outline:1px solid rgba(0,0,0,.25);
+  display:inline-block;
+}
+/* Ratio : plus petit, régulier (conformément au rendu actuel) */
+.sw-ratio{ font-size:8px; font-weight:400; line-height:10px }
+
+/* Valeur hex à droite : plus petit, régulier */
+.sw-hex{ margin-left:auto; font-size:10px; font-weight:400 }
