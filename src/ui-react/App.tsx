@@ -1,4 +1,38 @@
-import React, { useEffect, useMemo, useState } from "react"
+import React, { useEffect, useMemo, useState } from "react";
+import { buildCalcss, buildScss, type Palette } from "./exportUtils"
+
+function safeCopy(str: string) {
+  if (!str) return;
+  try {
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.clipboard &&
+      typeof navigator.clipboard.writeText === "function"
+    ) {
+      // Contexte autorisé → API moderne
+      navigator.clipboard.writeText(str);
+      return;
+    }
+  } catch {
+    // on retombe sur le fallback
+  }
+  // Fallback universel (compat Figma)
+  const ta = document.createElement("textarea");
+  ta.value = str;
+  ta.setAttribute("readonly", "true");
+  ta.style.position = "fixed";
+  ta.style.opacity = "0";
+  ta.style.left = "-9999px";
+  document.body.appendChild(ta);
+  ta.focus();
+  ta.select();
+  try {
+    document.execCommand("copy");
+  } catch {
+    // silencieux
+  }
+  document.body.removeChild(ta);
+}
 
 
 /** ----- Constantes UI ----- */
@@ -188,6 +222,18 @@ export default function App() {
   const [css, setCss] = useState<string>("")
   const palettes = useMemo(() => parseCssToPalettes(css), [css])
 
+  // Génération de l'export CSS standard (hex)
+  const cssExport = useMemo(() => {
+    let out = ":root {\n"
+    for (const [name, palette] of Object.entries(palettes)) {
+      for (const [step, hex] of Object.entries(palette)) {
+        out += `  --${name}-${step}: ${hex};\n`
+      }
+    }
+    out += "}"
+    return out
+  }, [palettes])
+
   // Neutral 500 dérivé de la palette générée (lecture seule)
   const neutral500 = palettes?.neutral?.[500] || "#808080"
 
@@ -217,11 +263,37 @@ export default function App() {
       pluginMessage: { type: "REPLACE_VARIABLES", payload: { c1: ensureHex(c1), c2: ensureHex(c2), c3: ensureHex(c3) } },
     }, "*")
   }
-  /** Copie le CSS généré dans le presse-papiers */
-  const copyCss = () => {
-    if (!css) return;
-    navigator.clipboard?.writeText(css);
-  };
+
+  /** Fonctions d'exports */
+  function ExportCard({
+  css, steps,
+  bases, palettes
+}: {
+  css: string
+  steps: number[]
+  bases: { c1: string; c2: string; c3: string; neutral: string }
+  palettes: { c1: Palette; c2: Palette; c3: Palette; neutral: Palette }
+}) {
+  const copy = (txt: string) => navigator.clipboard?.writeText(txt)
+
+  const onCopyCss     = () => copy(css || "")
+  const onCopyCalcss  = () => copy(buildCalcss(bases, palettes, steps))
+  const onCopyScss    = () => copy(buildScss(palettes, steps))
+
+  return (
+    <div className="export-card">
+      <div className="export-head">
+        <div className="export-title">Export for dev</div>
+        <div className="export-actions">
+          <button className="btn" onClick={onCopyCss}>CSS</button>
+          <button className="btn" onClick={onCopyCalcss}>CALCSS</button>
+          <button className="btn" onClick={onCopyScss}>SCSS</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 
 /* =========================================================
    MISE EN FORME FINALE
@@ -249,21 +321,53 @@ export default function App() {
   <ColumnCard title="Brand C2" value={c2} onChange={setC2} palette={palettes.c2 || {}} />
   <ColumnCard title="Brand C3" value={c3} onChange={setC3} palette={palettes.c3 || {}} />
   <ColumnCard title="Brand Neutral" value={neutral500} readOnly subtitle="(max. 2% C1 500)" palette={palettes.neutral || {}} />
-</div>
-      {/* --- CSS Export --- */}
-      <div className="export-wrap">
-        <div className="export-bar">
-          <div className="export-title">CSS export</div>
-          <button className="btn" onClick={copyCss}>Copy</button>
-        </div>
-        <textarea
-          className="css-area"
-          readOnly
-          spellCheck={false}
-          value={css || ""}
-          aria-label="CSS généré"
-        />
-      </div>
+    </div>
+
+            {/* --- Export for dev --- */}
+            <div className="col-card">
+              <div className="card-head" style={{ justifyContent: "space-between" }}>
+                <div className="head-title">Export for dev</div>
+                <div className="export-actions" style={{ display: "flex", gap: "8px" }}>
+                <button
+                  className="btn"
+                  onClick={() => {
+                    // CSS standard (ta variable cssExport, ou css si c’est la bonne)
+                    safeCopy(cssExport);
+                  }}
+                >
+                  CSS
+                </button>
+
+                <button
+                  className="btn"
+                  onClick={() => {
+                    // CALCSS (bases + palettes + steps)
+                    // bases = { c1, c2, c3, neutral: neutral500 }
+                    safeCopy(
+                      buildCalcss(
+                        { c1, c2, c3, neutral: neutral500 },
+                        palettes,
+                        STEPS
+                      )
+                    );
+                  }}
+                >
+                  CALCSS
+                </button>
+
+                <button
+                  className="btn"
+                  onClick={() => {
+                    // SCSS (palettes + steps)
+                    safeCopy(buildScss(palettes, STEPS));
+                  }}
+                >
+                  SCSS
+                </button>
+
+              </div>
+            </div>
+    </div>
 
     </div>
   )

@@ -1,5 +1,5 @@
 // ===== Figma MAIN (compat ES5) =====
-figma.showUI(__html__, { width: 980, height: 720 });
+figma.showUI(__html__, { width: 980, height: 660 });
 figma.notify("MAIN loaded (ES5 safe)");
 
 // ---------- Helpers couleurs (ES5) ----------
