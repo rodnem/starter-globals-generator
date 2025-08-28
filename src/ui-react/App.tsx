@@ -217,6 +217,15 @@ export default function App() {
       pluginMessage: { type: "REPLACE_VARIABLES", payload: { c1: ensureHex(c1), c2: ensureHex(c2), c3: ensureHex(c3) } },
     }, "*")
   }
+  /** Copie le CSS généré dans le presse-papiers */
+  const copyCss = () => {
+    if (!css) return;
+    navigator.clipboard?.writeText(css);
+  };
+
+/* =========================================================
+   MISE EN FORME FINALE
+   ========================================================= */
 
   return (
     <div className="ui-wrap">
@@ -241,7 +250,22 @@ export default function App() {
   <ColumnCard title="Brand C3" value={c3} onChange={setC3} palette={palettes.c3 || {}} />
   <ColumnCard title="Brand Neutral" value={neutral500} readOnly subtitle="(max. 2% C1 500)" palette={palettes.neutral || {}} />
 </div>
+      {/* --- CSS Export --- */}
+      <div className="export-wrap">
+        <div className="export-bar">
+          <div className="export-title">CSS export</div>
+          <button className="btn" onClick={copyCss}>Copy</button>
+        </div>
+        <textarea
+          className="css-area"
+          readOnly
+          spellCheck={false}
+          value={css || ""}
+          aria-label="CSS généré"
+        />
+      </div>
 
     </div>
   )
 }
+

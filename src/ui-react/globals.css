@@ -183,3 +183,29 @@ body{
 
 .a11y-ic.ok{ color:#188a5a; }  /* vert */
 .a11y-ic.ko{ color:#d35454; }  /* rouge */
+
+
+/* --------------------------------------------------------------------------
+   CSS Export (titre + bouton + zone readonly)
+   -------------------------------------------------------------------------- */
+.export-wrap{ margin-top:12px }
+
+.export-bar{
+  display:flex; align-items:center; gap:8px;
+  margin-bottom:6px;
+}
+.export-title{ font-weight:600 }
+
+.css-area{
+  width:100%;
+  min-height:72px;
+  border:1px solid var(--border);
+  border-radius:8px;
+  padding:8px;
+  background:#fff;
+  color:#111;
+  resize:vertical;
+  /* police lisible pour le code */
+  font:10px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,Monaco,monospace;
+  box-sizing:border-box;
+}
