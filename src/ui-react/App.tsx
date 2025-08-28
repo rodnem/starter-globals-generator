@@ -1,38 +1,82 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { buildCalcss, buildScss, type Palette } from "./exportUtils"
 
-function safeCopy(str: string) {
-  if (!str) return;
-  try {
-    if (
-      typeof navigator !== "undefined" &&
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      // Contexte autorisé → API moderne
-      navigator.clipboard.writeText(str);
-      return;
+// --- Mini toast UI côté iframe (aucun lien avec figma.notify) ---
+(function initUIToast() {
+  if ((window as any).showToast) return; // évite de ré-attacher
+
+  (window as any).showToast = function showToast(msg: string) {
+    const id = "ui-toast-host";
+    let host = document.getElementById(id);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = id;
+      host.style.position = "fixed";
+      host.style.right = "16px";
+      host.style.bottom = "16px";
+      host.style.zIndex = "9999";
+      document.body.appendChild(host);
     }
-  } catch {
-    // on retombe sur le fallback
+    const toast = document.createElement("div");
+    toast.textContent = msg;
+    toast.style.background = "rgba(0,0,0,0.85)";
+    toast.style.color = "#fff";
+    toast.style.padding = "10px 14px";
+    toast.style.borderRadius = "10px";
+    toast.style.marginTop = "8px";
+    toast.style.fontSize = "12px";
+    toast.style.boxShadow = "0 6px 20px rgba(0,0,0,.25)";
+    toast.style.transition = "opacity .2s ease";
+    host.appendChild(toast);
+
+    requestAnimationFrame(() => (toast.style.opacity = "1"));
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => host && toast.remove(), 200);
+    }, 1200);
+  };
+})();
+
+
+
+function safeCopy(text: string) {
+  const value = String(text || "").trim();
+  if (!value) return;
+
+  // 1) Essai avec l’API Clipboard (Figma la fournit dans l’UI)
+  const clip = (navigator as any).clipboard;
+  if (clip && typeof clip.writeText === "function") {
+    clip.writeText(value).catch(() => fallback());
+  } else {
+    fallback();
   }
-  // Fallback universel (compat Figma)
-  const ta = document.createElement("textarea");
-  ta.value = str;
-  ta.setAttribute("readonly", "true");
-  ta.style.position = "fixed";
-  ta.style.opacity = "0";
-  ta.style.left = "-9999px";
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  try {
-    document.execCommand("copy");
-  } catch {
-    // silencieux
+
+  function fallback() {
+    // Fallback DOM (execCommand)
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand("copy"); } catch {}
+    document.body.removeChild(ta);
   }
-  document.body.removeChild(ta);
+
+  // Optionnel : petit toast si tu en as déjà un
+  showToast?.(`Copied ${value.toUpperCase()}`);
+  const safeCopy = (value: string) => {
+  navigator?.clipboard?.writeText?.(value).catch(() => {});
+  // toast non bloquant
+  const w: any = window;
+  if (w && typeof w.showToast === "function") {
+    w.showToast(`Copied ${value.toUpperCase()}`);
+  }
+};
 }
+
 
 
 /** ----- Constantes UI ----- */
@@ -149,30 +193,30 @@ function SwatchRow({
   label,
   hex,
   onCopy,
-}: {
-  label: number
-  hex?: string
-  onCopy: (h: string) => void
-}) {
-  const v = hex || "#eeeeee"
-  const text = bestOn(v)
+}: { label: number; hex?: string; onCopy: (h: string) => void }) {
+  const v = hex || "#eeeeee";
+  const text = bestOn(v);
+  const rB = contrastRatio(v, "#000000");
+  const rW = contrastRatio(v, "#ffffff");
+  const useBlack = rB >= rW;
+  const ratio = (useBlack ? rB : rW).toFixed(2);
+  const dot = useBlack ? "#000000" : "#ffffff";
 
   return (
-    <div
+       <div
       className="sw-row"
       style={{ background: v, color: text }}
       onClick={() => onCopy(v)}
       title={`${label} ${v}`}
     >
       <div className="sw-name">{label}</div>
-      <div className="sw-hex">{v.toUpperCase()}</div>
-      {/* Capsule WCAG centrée */}
       <A11yPill hex={v} />
-
-      
+      <div className="sw-hex">{v.toUpperCase()}</div>
     </div>
-  )
+
+  );
 }
+
 
 function ColumnCard({
   title, value, palette, readOnly, onChange, subtitle
@@ -193,16 +237,17 @@ function ColumnCard({
         onChange={onChange}
         subtitle={subtitle}
       />
-      <div>
+           <div>
         {STEPS.map((s) => (
           <SwatchRow
             key={s}
             label={s}
-            hex={palette?.[s] || "#eeeeee"}
-            onCopy={(h) => navigator.clipboard?.writeText(h.toUpperCase())}
+            hex={palette?.[s]}           // ← on lit DANS la prop "palette"
+            onCopy={safeCopy}            // ← copie fiable
           />
         ))}
       </div>
+
     </div>
   )
 }
@@ -263,7 +308,7 @@ export default function App() {
   }
 
   /** Fonctions d'exports */
-  function ExportCard({
+/*   function ExportCard({
   css, steps,
   bases, palettes
 }: {
@@ -290,7 +335,7 @@ export default function App() {
       </div>
     </div>
   )
-}
+} */
 
 
 /* =========================================================

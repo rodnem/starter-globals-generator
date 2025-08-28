@@ -30,7 +30,7 @@ body{
   gap:12px; margin-bottom:12px;
 }
 .brand-left{ display:flex; align-items:center; gap:8px }
-.sprout{ font-size:18px; line-height:1 }
+.sprout{ font-size:32px; line-height:1 }
 .brand{ font-weight:700; font-size:16px }
 .muted{ font-size:12px; color:var(--muted) }
 
@@ -112,7 +112,7 @@ body{
   cursor:pointer; user-select:none;
   justify-content: space-between;
 }
-.sw-row + .sw-row{ border-top:1px solid rgba(0,0,0,.06) }
+.sw-row + .sw-row{ border-top:1px solid rgba(0,0,0,.06);}
 
 /* Libellé (niveau) en gras */
 .sw-name{ font-weight:700 }
