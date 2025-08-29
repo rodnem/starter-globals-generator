@@ -194,29 +194,20 @@ function CardHead({
 
 
 
-function SwatchRow({
-  label,
-  hex,
-  onCopy,
-}: { label: number; hex?: string; onCopy: (h: string) => void }) {
+type SwatchRowProps = {
+  label: number;
+  hex?: string;
+  onCopy: (h: string) => void;
+};
+
+function SwatchRow({ label, hex, onCopy }: SwatchRowProps) {
   const v = hex || "#eeeeee";
   const text = bestOn(v);
   const rB = contrastRatio(v, "#000000");
   const rW = contrastRatio(v, "#ffffff");
-  const useBlack = rB >= rW;
-  const ratio = (useBlack ? rB : rW).toFixed(2);
-  const dot = useBlack ? "#000000" : "#ffffff";
-}: { label: number; hex?: string; onCopy: (h: string) => void }) {
-  const v = hex || "#eeeeee";
-  const text = bestOn(v);
-  const rB = contrastRatio(v, "#000000");
-  const rW = contrastRatio(v, "#ffffff");
-  const useBlack = rB >= rW;
-  const ratio = (useBlack ? rB : rW).toFixed(2);
-  const dot = useBlack ? "#000000" : "#ffffff";
 
   return (
-       <div
+    <div
       className="sw-row"
       style={{ background: v, color: text }}
       onClick={() => onCopy(v)}
@@ -224,14 +215,11 @@ function SwatchRow({
     >
       <div className="sw-name">{label}</div>
       <A11yPill hex={v} />
-      <A11yPill hex={v} />
       <div className="sw-hex">{v.toUpperCase()}</div>
     </div>
-
-  );
-
   );
 }
+
 
 
 
