@@ -1,38 +1,82 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { buildCalcss, buildScss, type Palette } from "./exportUtils"
 
-function safeCopy(str: string) {
-  if (!str) return;
-  try {
-    if (
-      typeof navigator !== "undefined" &&
-      navigator.clipboard &&
-      typeof navigator.clipboard.writeText === "function"
-    ) {
-      // Contexte autorisé → API moderne
-      navigator.clipboard.writeText(str);
-      return;
+// --- Mini toast UI côté iframe (aucun lien avec figma.notify) ---
+(function initUIToast() {
+  if ((window as any).showToast) return; // évite de ré-attacher
+
+  (window as any).showToast = function showToast(msg: string) {
+    const id = "ui-toast-host";
+    let host = document.getElementById(id);
+    if (!host) {
+      host = document.createElement("div");
+      host.id = id;
+      host.style.position = "fixed";
+      host.style.right = "16px";
+      host.style.bottom = "16px";
+      host.style.zIndex = "9999";
+      document.body.appendChild(host);
     }
-  } catch {
-    // on retombe sur le fallback
+    const toast = document.createElement("div");
+    toast.textContent = msg;
+    toast.style.background = "rgba(0,0,0,0.85)";
+    toast.style.color = "#fff";
+    toast.style.padding = "10px 14px";
+    toast.style.borderRadius = "10px";
+    toast.style.marginTop = "8px";
+    toast.style.fontSize = "12px";
+    toast.style.boxShadow = "0 6px 20px rgba(0,0,0,.25)";
+    toast.style.transition = "opacity .2s ease";
+    host.appendChild(toast);
+
+    requestAnimationFrame(() => (toast.style.opacity = "1"));
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => host && toast.remove(), 200);
+    }, 1200);
+  };
+})();
+
+
+
+function safeCopy(text: string) {
+  const value = String(text || "").trim();
+  if (!value) return;
+
+  // 1) Essai avec l’API Clipboard (Figma la fournit dans l’UI)
+  const clip = (navigator as any).clipboard;
+  if (clip && typeof clip.writeText === "function") {
+    clip.writeText(value).catch(() => fallback());
+  } else {
+    fallback();
   }
-  // Fallback universel (compat Figma)
-  const ta = document.createElement("textarea");
-  ta.value = str;
-  ta.setAttribute("readonly", "true");
-  ta.style.position = "fixed";
-  ta.style.opacity = "0";
-  ta.style.left = "-9999px";
-  document.body.appendChild(ta);
-  ta.focus();
-  ta.select();
-  try {
-    document.execCommand("copy");
-  } catch {
-    // silencieux
+
+  function fallback() {
+    // Fallback DOM (execCommand)
+    const ta = document.createElement("textarea");
+    ta.value = value;
+    ta.style.position = "fixed";
+    ta.style.opacity = "0";
+    ta.style.pointerEvents = "none";
+    document.body.appendChild(ta);
+    ta.focus();
+    ta.select();
+    try { document.execCommand("copy"); } catch { }
+    document.body.removeChild(ta);
   }
-  document.body.removeChild(ta);
+
+  // Optionnel : petit toast si tu en as déjà un
+  showToast?.(`Copied ${value.toUpperCase()}`);
+  const safeCopy = (value: string) => {
+    navigator?.clipboard?.writeText?.(value).catch(() => { });
+    // toast non bloquant
+    const w: any = window;
+    if (w && typeof w.showToast === "function") {
+      w.showToast(`Copied ${value.toUpperCase()}`);
+    }
+  };
 }
+
 
 
 /** ----- Constantes UI ----- */
@@ -118,11 +162,15 @@ function parseCssToPalettes(css: string) {
   return groups
 }
 
-/** ----- Sous-composants UI ----- */
 function CardHead({
   title, value, readOnly, onChange, subtitle
 }: {
-  title: string; value: string; readOnly?: boolean; onChange?: (v: string) => void; subtitle?: string
+  title: string
+  value: string
+  readOnly?: boolean
+  onChange?: (v: string) => void
+  /** ← accepte maintenant du JSX pour pouvoir mettre une checkbox */
+  subtitle?: React.ReactNode
 }) {
   const bg = ensureHex(value)
   const fg = bestOn(bg)
@@ -145,17 +193,19 @@ function CardHead({
 }
 
 
+
 function SwatchRow({
   label,
   hex,
   onCopy,
-}: {
-  label: number
-  hex?: string
-  onCopy: (h: string) => void
-}) {
-  const v = hex || "#eeeeee"
-  const text = bestOn(v)
+}: { label: number; hex?: string; onCopy: (h: string) => void }) {
+  const v = hex || "#eeeeee";
+  const text = bestOn(v);
+  const rB = contrastRatio(v, "#000000");
+  const rW = contrastRatio(v, "#ffffff");
+  const useBlack = rB >= rW;
+  const ratio = (useBlack ? rB : rW).toFixed(2);
+  const dot = useBlack ? "#000000" : "#ffffff";
 
   return (
     <div
@@ -165,14 +215,13 @@ function SwatchRow({
       title={`${label} ${v}`}
     >
       <div className="sw-name">{label}</div>
-      <div className="sw-hex">{v.toUpperCase()}</div>
-      {/* Capsule WCAG centrée */}
       <A11yPill hex={v} />
-
-      
+      <div className="sw-hex">{v.toUpperCase()}</div>
     </div>
-  )
+
+  );
 }
+
 
 function ColumnCard({
   title, value, palette, readOnly, onChange, subtitle
@@ -186,27 +235,14 @@ function ColumnCard({
 }) {
   return (
     <div className="col-card">
-      <CardHead
-        title={title}
-        value={value}
-        readOnly={readOnly}
-        onChange={onChange}
-        subtitle={subtitle}
-      />
+      <CardHead title={title} value={value} readOnly={readOnly} onChange={onChange} subtitle={subtitle} />
       <div>
         {STEPS.map((s) => (
-          <SwatchRow
-            key={s}
-            label={s}
-            hex={palette?.[s] || "#eeeeee"}
-            onCopy={(h) => navigator.clipboard?.writeText(h.toUpperCase())}
-          />
-        ))}
+          <SwatchRow key={s} label={s} hex={palette?.[s]} onCopy={safeCopy} />))}
       </div>
     </div>
   )
 }
-
 
 
 /** ----- App (UI only) ----- */
@@ -215,10 +251,14 @@ export default function App() {
   const [c1, setC1] = useState(DEFAULTS.c1)
   const [c2, setC2] = useState(DEFAULTS.c2)
   const [c3, setC3] = useState(DEFAULTS.c3)
+  // Référence Neutral (champ débloquable) — par défaut verrouillé
+  const [neutralLocked, setNeutralLocked] = useState(true);
+  const [neutralManual, setNeutralManual] = useState("#808080");
 
   // CSS reçu du main + palettes parsées
   const [css, setCss] = useState<string>("")
   const palettes = useMemo(() => parseCssToPalettes(css), [css])
+
 
   // Génération de l'export CSS standard (hex)
   const cssExport = useMemo(() => {
@@ -233,7 +273,20 @@ export default function App() {
   }, [palettes])
 
   // Neutral 500 dérivé de la palette générée (lecture seule)
-  const neutral500 = palettes?.neutral?.[500] || "#808080"
+  const neutral500 = palettes?.neutral?.[500] || "#808080";
+  const neutralInputValue = neutralLocked ? neutral500 : neutralManual;
+
+  const neutralSubtitle = (
+    <label style={{ display: "inline-flex", gap: 2, alignItems: "center", fontWeight: 400 }}>
+      <input
+        type="checkbox"
+        checked={neutralLocked}
+        onChange={(e) => setNeutralLocked(e.target.checked)}
+      />
+      <span>max. 2% C1 500</span>
+    </label>
+  )
+
 
   /** Listen CSS_READY du main (on ne touche pas à la logique) */
   useEffect(() => {
@@ -249,124 +302,112 @@ export default function App() {
   }, [])
 
   /** Envoi GENERATE au main à chaque frappe (ne change pas le protocole) */
-  useEffect(() => {
-    parent.postMessage({
-      pluginMessage: { type: "GENERATE", payload: { c1: ensureHex(c1), c2: ensureHex(c2), c3: ensureHex(c3) } },
-    }, "*")
-  }, [c1, c2, c3])
+useEffect(() => {
+  parent.postMessage({
+    pluginMessage: {
+      type: "GENERATE",
+      payload: {
+        c1: ensureHex(c1),
+        c2: ensureHex(c2),
+        c3: ensureHex(c3),
+        // ↓↓↓ ajout pour neutral
+        neutralUnlocked: !neutralLocked,            // true si case décochée
+        neutralManual: ensureHex(neutralManual),    // base neutral saisie
+      },
+    },
+  }, "*")
+}, [c1, c2, c3, neutralLocked, neutralManual]) // ← ajoute aussi ces deps
+
 
   /** Bouton Replace variables (même message) */
-  const replaceVariables = () => {
-    parent.postMessage({
-      pluginMessage: { type: "REPLACE_VARIABLES", payload: { c1: ensureHex(c1), c2: ensureHex(c2), c3: ensureHex(c3) } },
-    }, "*")
-  }
-
-  /** Fonctions d'exports */
-  function ExportCard({
-  css, steps,
-  bases, palettes
-}: {
-  css: string
-  steps: number[]
-  bases: { c1: string; c2: string; c3: string; neutral: string }
-  palettes: { c1: Palette; c2: Palette; c3: Palette; neutral: Palette }
-}) {
-  const copy = (txt: string) => navigator.clipboard?.writeText(txt)
-
-  const onCopyCss     = () => copy(css || "")
-  const onCopyCalcss  = () => copy(buildCalcss(bases, palettes, steps))
-  const onCopyScss    = () => copy(buildScss(palettes, steps))
-
-  return (
-    <div className="export-card">
-      <div className="export-head">
-        <div className="export-title">Export for dev</div>
-        <div className="export-actions">
-          <button className="btn" onClick={onCopyCss}>CSS</button>
-          <button className="btn" onClick={onCopyCalcss}>CALCSS</button>
-          <button className="btn" onClick={onCopyScss}>SCSS</button>
-        </div>
-      </div>
-    </div>
-  )
+const replaceVariables = () => {
+  parent.postMessage({
+    pluginMessage: {
+      type: "REPLACE_VARIABLES",
+      payload: {
+        c1: ensureHex(c1),
+        c2: ensureHex(c2),
+        c3: ensureHex(c3),
+        // ↓↓↓ même logique côté replace
+        neutralUnlocked: !neutralLocked,
+        neutralManual: ensureHex(neutralManual),
+      },
+    },
+  }, "*")
 }
 
 
-/* =========================================================
-   MISE EN FORME FINALE
-   ========================================================= */
+
+  /* =========================================================
+     MISE EN FORME FINALE
+     ========================================================= */
 
   return (
     <div className="ui-wrap">
-     <div className="brand-row">
-  <div className="brand-left">
-    <span className="sprout">🌱</span>
-    <div className="brand-texts">
-      <div className="brand">Starter’s globals generator</div>
-      <div className="muted">Génère et applique tes palettes (C1, C2, C3, Neutral — max. 2% C1 500)</div>
-    </div>
-  </div>
-<button className="btn btn--invert" onClick={replaceVariables}>
-  <span className="material-icons mi-16">refresh</span>
-  <span>Replace variables</span>
-</button>
+      <div className="brand-row">
+        <div className="brand-left">
+          <span className="sprout">🌱</span>
+          <div className="brand-texts">
+            <div className="brand">Starter’s globals generator</div>
+            <div className="muted">Génère et applique tes palettes (C1, C2, C3, Neutral — max. 2% C1 500)</div>
+          </div>
+        </div>
+        <button className="btn btn--invert" onClick={replaceVariables}>
+          <span className="material-icons mi-16">refresh</span>
+          <span>Replace variables</span>
+        </button>
 
-</div>
+      </div>
 
-     <div className="grid grid-4 gap-3">
-  <ColumnCard title="Brand C1" value={c1} onChange={setC1} palette={palettes.c1 || {}} />
-  <ColumnCard title="Brand C2" value={c2} onChange={setC2} palette={palettes.c2 || {}} />
-  <ColumnCard title="Brand C3" value={c3} onChange={setC3} palette={palettes.c3 || {}} />
-  <ColumnCard title="Brand Neutral" value={neutral500} readOnly subtitle="(max. 2% C1 500)" palette={palettes.neutral || {}} />
-    </div>
+      <div className="grid grid-4 gap-3">
+        <ColumnCard title="Brand C1" value={c1} onChange={setC1} palette={palettes.c1 || {}} />
+        <ColumnCard title="Brand C2" value={c2} onChange={setC2} palette={palettes.c2 || {}} />
+        <ColumnCard title="Brand C3" value={c3} onChange={setC3} palette={palettes.c3 || {}} />
+        <ColumnCard title="Brand Neutral" value={neutralInputValue} readOnly={neutralLocked} onChange={(v) => !neutralLocked && setNeutralManual(v)} subtitle={neutralSubtitle} palette={palettes.neutral || {}} />
+      </div>
 
-            {/* --- Export for dev --- */}
-            <div className="col-card">
-              <div className="card-head" style={{ justifyContent: "space-between" }}>
-                <div className="head-title">Export for dev</div>
-                <div className="export-actions" style={{ display: "flex", gap: "8px" }}>
-                <button
-                  className="btn"
-                  onClick={() => {
-                    // CSS standard (ta variable cssExport, ou css si c’est la bonne)
-                    safeCopy(cssExport);
-                  }}
-                >
-                  CSS
-                </button>
-
-                <button
-                  className="btn"
-                  onClick={() => {
-                    // CALCSS (bases + palettes + steps)
-                    // bases = { c1, c2, c3, neutral: neutral500 }
-                    safeCopy(
-                      buildCalcss(
-                        { c1, c2, c3, neutral: neutral500 },
-                        palettes,
-                        STEPS
-                      )
-                    );
-                  }}
-                >
-                  CALCSS
-                </button>
-
-                <button
-                  className="btn"
-                  onClick={() => {
-                    // SCSS (palettes + steps)
-                    safeCopy(buildScss(palettes, STEPS));
-                  }}
-                >
-                  SCSS
-                </button>
-
-              </div>
-            </div>
-    </div>
-
+      {/* --- Export for dev --- */}
+      <div className="col-card">
+        <div className="card-head" style={{ justifyContent: "space-between" }}>
+          <div className="head-title">Export for dev</div>
+          <div className="export-actions" style={{ display: "flex", gap: "8px" }}>
+            <button
+              className="btn"
+              onClick={() => {
+                // CSS standard (ta variable cssExport, ou css si c’est la bonne)
+                safeCopy(cssExport);
+              }}
+            >
+              CSS
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                // CALCSS (bases + palettes + steps)
+                // bases = { c1, c2, c3, neutral: neutral500 }
+                safeCopy(
+                  buildCalcss(
+                    { c1, c2, c3, neutral: neutral500 },
+                    palettes,
+                    STEPS
+                  )
+                );
+              }}
+            >
+              CALCSS
+            </button>
+            <button
+              className="btn"
+              onClick={() => {
+                // SCSS (palettes + steps)
+                safeCopy(buildScss(palettes, STEPS));
+              }}
+            >
+              SCSS
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
