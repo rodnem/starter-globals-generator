@@ -24880,18 +24880,38 @@
         }
       }, "*");
     };
+    const generateFrames = () => {
+      parent.postMessage({
+        pluginMessage: {
+          type: "GENERATE_FRAMES",
+          payload: {
+            c1: ensureHex(c1),
+            c2: ensureHex(c2),
+            c3: ensureHex(c3),
+            neutralUnlocked: !neutralLocked,
+            neutralManual: ensureHex(neutralManual)
+          }
+        }
+      }, "*");
+    };
     return /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "ui-wrap", children: [
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "brand-row", children: [
         /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "brand-left", children: [
           /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "sprout", children: "\u{1F331}" }),
           /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "brand-texts", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "brand", children: "Starter\u2019s globals generator" }),
-            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "muted", children: "G\xE9n\xE8re et applique tes palettes (C1, C2, C3, Neutral \u2014 max. 2% C1 500)" })
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "brand", children: "Starter's globals generator" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("div", { className: "muted", children: "G\xE9n\xE8re tes palettes & remplace tes variables (G\xE9n\xE9ration HSLuv ou Lab)" })
           ] })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn btn--invert", onClick: replaceVariables, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "material-icons mi-16", children: "refresh" }),
-          /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Replace variables" })
+        /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { style: { display: "flex", gap: "12px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn", onClick: generateFrames, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "material-icons mi-16", children: "art_track" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Generate frames" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("button", { className: "btn btn--invert", onClick: replaceVariables, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { className: "material-icons mi-16", children: "refresh" }),
+            /* @__PURE__ */ (0, import_jsx_runtime.jsx)("span", { children: "Replace variables" })
+          ] })
         ] })
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime.jsxs)("div", { className: "grid grid-4 gap-3", children: [

@@ -303,40 +303,54 @@ export default function App() {
   }, [])
 
   /** Envoi GENERATE au main à chaque frappe (ne change pas le protocole) */
-useEffect(() => {
-  parent.postMessage({
-    pluginMessage: {
-      type: "GENERATE",
-      payload: {
-        c1: ensureHex(c1),
-        c2: ensureHex(c2),
-        c3: ensureHex(c3),
-        // ↓↓↓ ajout pour neutral
-        neutralUnlocked: !neutralLocked,            // true si case décochée
-        neutralManual: ensureHex(neutralManual),    // base neutral saisie
+  useEffect(() => {
+    parent.postMessage({
+      pluginMessage: {
+        type: "GENERATE",
+        payload: {
+          c1: ensureHex(c1),
+          c2: ensureHex(c2),
+          c3: ensureHex(c3),
+          // ↓↓↓ ajout pour neutral
+          neutralUnlocked: !neutralLocked,            // true si case décochée
+          neutralManual: ensureHex(neutralManual),    // base neutral saisie
+        },
       },
-    },
-  }, "*")
-}, [c1, c2, c3, neutralLocked, neutralManual]) // ← ajoute aussi ces deps
+    }, "*")
+  }, [c1, c2, c3, neutralLocked, neutralManual]) // ← ajoute aussi ces deps
 
 
   /** Bouton Replace variables (même message) */
-const replaceVariables = () => {
+  const replaceVariables = () => {
+    parent.postMessage({
+      pluginMessage: {
+        type: "REPLACE_VARIABLES",
+        payload: {
+          c1: ensureHex(c1),
+          c2: ensureHex(c2),
+          c3: ensureHex(c3),
+          // ↓↓↓ même logique côté replace
+          neutralUnlocked: !neutralLocked,
+          neutralManual: ensureHex(neutralManual),
+        },
+      },
+    }, "*")
+  }
+// Nouvelle fonction pour générer les frames
+const generateFrames = () => {
   parent.postMessage({
     pluginMessage: {
-      type: "REPLACE_VARIABLES",
+      type: "GENERATE_FRAMES",
       payload: {
         c1: ensureHex(c1),
         c2: ensureHex(c2),
         c3: ensureHex(c3),
-        // ↓↓↓ même logique côté replace
         neutralUnlocked: !neutralLocked,
         neutralManual: ensureHex(neutralManual),
       },
     },
   }, "*")
 }
-
 
 
   /* =========================================================
@@ -349,15 +363,20 @@ const replaceVariables = () => {
         <div className="brand-left">
           <span className="sprout">🌱</span>
           <div className="brand-texts">
-            <div className="brand">Starter’s globals generator</div>
-            <div className="muted">Génère et applique tes palettes (C1, C2, C3, Neutral — max. 2% C1 500)</div>
+            <div className="brand">Starter's globals generator</div>
+            <div className="muted">Génère tes palettes & remplace tes variables (Génération HSLuv ou Lab)</div>
           </div>
         </div>
-        <button className="btn btn--invert" onClick={replaceVariables}>
-          <span className="material-icons mi-16">refresh</span>
-          <span>Replace variables</span>
-        </button>
-
+        <div style={{ display: "flex", gap: "12px" }}>
+          <button className="btn" onClick={generateFrames}>
+            <span className="material-icons mi-16">art_track</span>
+            <span>Generate frames</span>
+          </button>
+          <button className="btn btn--invert" onClick={replaceVariables}>
+            <span className="material-icons mi-16">refresh</span>
+            <span>Replace variables</span>
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-4 gap-3">
