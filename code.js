@@ -427,6 +427,8 @@ async function generatePaletteFrames(gen, names) {
 
 
 // ---------- GENERATE FRAMES IN FIGMA CHILD IN ROWS (ES5) ----------
+// --- fonction qui ne marche que en local
+/*
 function findTextStyleIdByNames(candidates) {
   var styles = figma.getLocalTextStyles();
   // 1) match exact
@@ -442,6 +444,100 @@ function findTextStyleIdByNames(candidates) {
     }
   }
   return null;
+} */
+
+// --- version compatible dynamic-page (Async)
+async function findTextStyleIdByNames(candidates) {
+  var styles = await figma.getLocalTextStylesAsync(); // << important
+  // 1) match exact
+  for (var i = 0; i < candidates.length; i++) {
+    for (var j = 0; j < styles.length; j++) {
+      if (styles[j].name === candidates[i]) return styles[j].id;
+    }
+  }
+  // 2) match suffixe
+  for (var k = 0; k < candidates.length; k++) {
+    for (var m = 0; m < styles.length; m++) {
+      if (styles[m].name.slice(-candidates[k].length) === candidates[k]) return styles[m].id;
+    }
+  }
+  return null;
+}
+
+// ---- OVERWRITE ONLY in collection "一 Globals" (ES5 & dynamic-page safe)
+function overwriteGlobalsColorsAsync(gen) {
+  // Normalise un nom: retire les espaces autour des "/" et passe en minuscule
+  function norm(name) {
+    return String(name || "")
+      .replace(/\s*\/\s*/g, "/")
+      .trim()
+      .toLowerCase();
+  }
+  function keyFor(prefix, step) {
+    return norm("colors/" + prefix + "/" + String(step));
+  }
+  function ensureHexLocal(hex) {
+    try {
+      return (typeof ensureHex === "function") ? ensureHex(hex) : (hex || "#000000");
+    } catch (e) {
+      return hex || "#000000";
+    }
+  }
+  function hexToRGB01(hex) {
+    hex = ensureHexLocal(hex);
+    var n = parseInt(hex.slice(1), 16);
+    var r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    return { r: r / 255, g: g / 255, b: b / 255 };
+  }
+
+  // 1) Trouver la collection "一 Globals"
+  return figma.variables.getLocalVariableCollectionsAsync().then(function(cols) {
+    var col = null;
+    for (var i = 0; i < cols.length; i++) {
+      var nm = cols[i].name;
+      if (nm === "一 Globals" || nm === "Globals") { col = cols[i]; break; }
+    }
+    if (!col) {
+      figma.notify('Collection "一 Globals" introuvable. Ouvre-la et relance.', { error: true });
+      return { updated: 0, missing: 0, noCollection: true };
+    }
+
+    // 2) Indexer toutes les variables de CETTE collection
+    return figma.variables.getLocalVariablesAsync().then(function(all) {
+      var index = {}; // clé normalisée -> Variable
+      for (var j = 0; j < all.length; j++) {
+        var v = all[j];
+        if (v.variableCollectionId !== col.id) continue;
+        if (v.resolvedType !== "COLOR") continue;
+        index[norm(v.name)] = v;
+      }
+
+      // 3) Mise à jour sans création
+      var modeId = col.defaultModeId;
+      var updated = 0, missing = 0;
+
+      function updateScale(prefix, scale) {
+        for (var k in scale) if (scale.hasOwnProperty(k)) {
+          var key = keyFor(prefix, k);
+          var varNode = index[key];
+          if (varNode) {
+            varNode.setValueForMode(modeId, hexToRGB01(scale[k]));
+            updated++;
+          } else {
+            // on NE crée PAS — on compte ce qui manque
+            missing++;
+          }
+        }
+      }
+
+      updateScale("c1",      gen.c1);
+      updateScale("c2",      gen.c2);
+      updateScale("c3",      gen.c3);
+      updateScale("neutral", gen.neutral);
+
+      return { updated: updated, missing: missing };
+    });
+  });
 }
 
 function _loadFontForStyleId(styleId) {
@@ -547,10 +643,10 @@ function contrastRatioHex(aHex, bHex) {
 }
 
 async function generatePaletteFrames(gen, names) {
-  var normalId = findTextStyleIdByNames(["Body/Standard/Normal", "Body/Standard/Regular", "Normal"]);
-  var boldId = findTextStyleIdByNames(["Body/Standard/Bold", "Bold"]);
-  var infoSmallId = findTextStyleIdByNames(["infos-styles/infos-small", "infos-small"]);
-  var infoXSmallId = findTextStyleIdByNames(["infos-styles/infos-xsmall", "infos-xsmall"]);
+  var normalId    = await findTextStyleIdByNames(["Body/Standard/Normal", "Body/Standard/Regular", "Normal"]);
+var boldId      = await findTextStyleIdByNames(["Body/Standard/Bold", "Bold"]);
+var infoSmallId = await findTextStyleIdByNames(["infos-styles/infos-small", "infos-small"]);
+var infoXSmallId= await findTextStyleIdByNames(["infos-styles/infos-xsmall", "infos-xsmall"]);
 
   await _loadFontForStyleId(normalId);
   await _loadFontForStyleId(boldId);
@@ -687,7 +783,9 @@ figma.ui.onmessage = function (msg) {
       reply({ type: "CSS_READY", payload: { css: out.css } });
       return;
     }
-    if (msg.type === "REPLACE_VARIABLES") {
+
+   // --- Ci dessous la version qui marche en mode local
+   /*  if (msg.type === "REPLACE_VARIABLES") {
       var c1r = (msg.payload && msg.payload.c1) || "#000000";
       var c2r = (msg.payload && msg.payload.c2) || "#000000";
       var c3r = (msg.payload && msg.payload.c3) || "#000000";
@@ -703,9 +801,9 @@ figma.ui.onmessage = function (msg) {
       figma.notify("Variables: " + s.updated + " mises à jour, " + s.created + " créées");
       reply({ type: "OK", payload: { note: "Variables remplacées" } });
       return;
-    }
+    } */
 
-    if (msg.type === "GENERATE_FRAMES") {
+   /*  if (msg.type === "GENERATE_FRAMES") {
       if (msg.type === "GENERATE_FRAMES") {
         // Recalcule les palettes comme pour GENERATE/REPLACE_VARIABLES
         var c1g = (msg.payload && msg.payload.c1) || "#000000";
@@ -730,7 +828,64 @@ figma.ui.onmessage = function (msg) {
 
         return;
       }
-    }
+    } */
+
+
+/* Ci-dessus la version qui marche en local, en ci-dessous celle que devrait marcher publiée*/
+if (msg.type === "REPLACE_VARIABLES") {
+  var c1r = (msg.payload && msg.payload.c1) || "#000000";
+  var c2r = (msg.payload && msg.payload.c2) || "#000000";
+  var c3r = (msg.payload && msg.payload.c3) || "#000000";
+
+  var neutralUnlocked = !!(msg.payload && msg.payload.neutralUnlocked === true);
+  var neutralManual   = (msg.payload && msg.payload.neutralManual) || null;
+
+  var gen = buildCssVars(c1r, c2r, c3r, {
+    neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
+  });
+
+  overwriteGlobalsColorsAsync(gen).then(function(res) {
+    if (res && res.noCollection) return; // déjà notifié
+    var msgTxt = "Variables mises à jour : " + res.updated;
+    if (res.missing > 0) msgTxt += " · introuvables : " + res.missing + " (non créées)";
+    figma.notify(msgTxt);
+    reply({ type: "OK", payload: res });
+  }).catch(function(err) {
+    figma.notify("Replace failed: " + (err && err.message ? err.message : String(err)), { error: true });
+  });
+  return;
+}
+
+   if (msg.type === "GENERATE_FRAMES") {
+  // Demander l'accès à la page avant de créer les frames
+  figma.skipInvisibleInstanceChildren = true;
+  
+  // Vérifier si on a déjà accès à la page
+  if (figma.currentPage) {
+    // On a accès, on peut générer
+    var c1g = (msg.payload && msg.payload.c1) || "#000000";
+    var c2g = (msg.payload && msg.payload.c2) || "#000000";
+    var c3g = (msg.payload && msg.payload.c3) || "#000000";
+
+    var neutralUnlocked = !!(msg.payload && msg.payload.neutralUnlocked === true);
+    var neutralManual = (msg.payload && msg.payload.neutralManual) || null;
+
+    var gen = buildCssVars(c1g, c2g, c3g, {
+      neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
+    });
+
+    generatePaletteFrames(gen, {
+      c1: "Brand C1",
+      c2: "Brand C2", 
+      c3: "Brand C3",
+      neutral: "Brand Neutral"
+    });
+  } else {
+    figma.notify("Impossible d'accéder à la page");
+  }
+  
+  return;
+}
 
     // Compat éventuelle anciens messages
     if (msg.type === "replace-variables") {
