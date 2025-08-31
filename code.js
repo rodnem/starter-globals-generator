@@ -491,7 +491,7 @@ function overwriteGlobalsColorsAsync(gen) {
   }
 
   // 1) Trouver la collection "一 Globals"
-  return figma.variables.getLocalVariableCollectionsAsync().then(function(cols) {
+  return figma.variables.getLocalVariableCollectionsAsync().then(function (cols) {
     var col = null;
     for (var i = 0; i < cols.length; i++) {
       var nm = cols[i].name;
@@ -503,7 +503,7 @@ function overwriteGlobalsColorsAsync(gen) {
     }
 
     // 2) Indexer toutes les variables de CETTE collection
-    return figma.variables.getLocalVariablesAsync().then(function(all) {
+    return figma.variables.getLocalVariablesAsync().then(function (all) {
       var index = {}; // clé normalisée -> Variable
       for (var j = 0; j < all.length; j++) {
         var v = all[j];
@@ -530,9 +530,9 @@ function overwriteGlobalsColorsAsync(gen) {
         }
       }
 
-      updateScale("c1",      gen.c1);
-      updateScale("c2",      gen.c2);
-      updateScale("c3",      gen.c3);
+      updateScale("c1", gen.c1);
+      updateScale("c2", gen.c2);
+      updateScale("c3", gen.c3);
       updateScale("neutral", gen.neutral);
 
       return { updated: updated, missing: missing };
@@ -562,7 +562,77 @@ function createTextWithStyle(text, styleId) {
   return t;
 }
 
-function makeRow(step, hex, styles) {
+// --- Helper: récupère l'ID de variable "一 Globals/colors/{brand}/{step}" (ES5 + dynamic-page)
+function resolveGlobalsColorVarIdAsync(brandKey, step) {
+  return figma.variables.getLocalVariableCollectionsAsync().then(function (cols) {
+    var i, targetCol = null;
+    for (i = 0; i < cols.length; i++) {
+      if (cols[i].name === "一 Globals") { targetCol = cols[i]; break; }
+    }
+    if (!targetCol) { return null; }
+
+    // Variables de cette collection
+    // (suivant la version du SDK, l'une ou l'autre API peut être dispo)
+    var vars = [];
+    if (figma.variables.getLocalVariablesByCollectionId) {
+      vars = figma.variables.getLocalVariablesByCollectionId(targetCol.id);
+      return findVarIdIn(vars);
+    }
+
+    // Fallback asynchrone si besoin
+    if (figma.variables.getLocalVariablesByCollectionIdAsync) {
+      return figma.variables.getLocalVariablesByCollectionIdAsync(targetCol.id).then(findVarIdIn);
+    }
+
+    return null;
+
+    function findVarIdIn(list) {
+      var k, name = "colors/" + String(brandKey) + "/" + String(step);
+      for (k = 0; k < list.length; k++) {
+        if (list[k].name === name) { return list[k].id; }
+      }
+      return null;
+    }
+  });
+}
+
+// ---Helper: Résout la Variable (objet) "一 Globals/colors/{brandKey}/{step}" en ES5 + dynamic-page
+function resolveGlobalsColorVariableAsync(brandKey, step) {
+  var target = "colors/" + String(brandKey) + "/" + String(step);
+  // 1) Trouver la collection "一 Globals"
+  return figma.variables.getLocalVariableCollectionsAsync().then(function (cols) {
+    var col = null, i;
+    for (i = 0; i < cols.length; i++) {
+      if (cols[i].name === "一 Globals") { col = cols[i]; break; }
+    }
+    if (!col) return null;
+    // 2) Chercher la variable par chemin dans cette collection
+    return figma.variables.getLocalVariablesAsync().then(function (vars) {
+      var cleanedTarget = target.replace(/\s+/g, "");
+      for (i = 0; i < vars.length; i++) {
+        var v = vars[i];
+        if (v.variableCollectionId !== col.id) continue;
+        // Les noms de variables incluent le chemin "colors/c1/500"
+        var cleanedName = String(v.name || "").replace(/\s+/g, "");
+        if (cleanedName === cleanedTarget) return v; // <- retourne l'OBJET Variable
+      }
+      return null;
+    });
+  });
+}
+
+// --- Helper: applique un fill aliasé sur une frame (si la variable existe)
+function bindFillToColorVariableAsync(node, brandKey, step) {
+  return resolveGlobalsColorVariableAsync(brandKey, step).then(function (variable) {
+    if (!variable) return; // pas de variable trouvée => on ne change rien
+    var p = { type: "SOLID", color: { r: 1, g: 1, b: 1 } };
+    // ✅ Figma attend un VariableAlias: { type: "VARIABLE_ALIAS", id: <variableId> }
+    p.boundVariables = { color: { type: "VARIABLE_ALIAS", id: variable.id } };
+    node.fills = [p];
+  });
+}
+
+function makeRow(step, hex, styles, brandKey) {
   var bg = ensureHex(hex);
   var fg = bestOnHex(bg);
 
@@ -611,6 +681,8 @@ function makeRow(step, hex, styles) {
   inner.appendChild(hexTxt);
 
   row.appendChild(inner);
+  // --- Rebind du fond sur la variable: 一 Globals/colors/{brandKey}/{step}
+  bindFillToColorVariableAsync(row, brandKey, step);
 
   // ✅ appliquer Fill/Hug APRES append
   inner.layoutSizingHorizontal = "FILL";
@@ -642,11 +714,12 @@ function contrastRatioHex(aHex, bHex) {
   return (hi + 0.05) / (lo + 0.05);
 }
 
+
 async function generatePaletteFrames(gen, names) {
-  var normalId    = await findTextStyleIdByNames(["Body/Standard/Normal", "Body/Standard/Regular", "Normal"]);
-var boldId      = await findTextStyleIdByNames(["Body/Standard/Bold", "Bold"]);
-var infoSmallId = await findTextStyleIdByNames(["infos-styles/infos-small", "infos-small"]);
-var infoXSmallId= await findTextStyleIdByNames(["infos-styles/infos-xsmall", "infos-xsmall"]);
+  var normalId = await findTextStyleIdByNames(["Body/Standard/Normal", "Body/Standard/Regular", "Normal"]);
+  var boldId = await findTextStyleIdByNames(["Body/Standard/Bold", "Bold"]);
+  var infoSmallId = await findTextStyleIdByNames(["infos-styles/infos-small", "infos-small"]);
+  var infoXSmallId = await findTextStyleIdByNames(["infos-styles/infos-xsmall", "infos-xsmall"]);
 
   await _loadFontForStyleId(normalId);
   await _loadFontForStyleId(boldId);
@@ -667,7 +740,7 @@ var infoXSmallId= await findTextStyleIdByNames(["infos-styles/infos-xsmall", "in
   root.strokes = [{ type: "SOLID", color: { r: 0, g: 0, b: 0 }, opacity: 0.06 }];
   root.cornerRadius = 12;
 
-  function makeColumn(title, baseHex, scale) {
+  function makeColumn(title, baseHex, scale, brandKey) {
     var col = figma.createFrame();
     col.name = title;
     col.layoutMode = "VERTICAL";
@@ -681,64 +754,66 @@ var infoXSmallId= await findTextStyleIdByNames(["infos-styles/infos-xsmall", "in
     col.strokes = [{ type: "SOLID", color: { r: 0, g: 0, b: 0 }, opacity: 0.08 }];
     col.fills = [{ type: "SOLID", color: { r: 1, g: 1, b: 1 } }];
 
-   // Header
-var header = figma.createFrame();
-header.name = "Header";
-header.layoutMode = "VERTICAL";
-header.primaryAxisSizingMode = "AUTO";
-header.counterAxisSizingMode = "AUTO";
-header.itemSpacing = 0;
-header.paddingLeft = header.paddingRight = 0;
-header.paddingTop = header.paddingBottom = 0;
-header.cornerRadius = 0;
+    // Header
+    var header = figma.createFrame();
+    header.name = "Header";
+    header.layoutMode = "VERTICAL";
+    header.primaryAxisSizingMode = "AUTO";
+    header.counterAxisSizingMode = "AUTO";
+    header.itemSpacing = 0;
+    header.paddingLeft = header.paddingRight = 0;
+    header.paddingTop = header.paddingBottom = 0;
+    header.cornerRadius = 0;
 
-// couleur 500 de la colonne
-var base = ensureHex(scale["500"] || baseHex);
-header.fills = [{ type: "SOLID", color: hexToRGB01(base) }];
+    // couleur 500 de la colonne
+    var base = ensureHex(scale["500"] || baseHex);
+    header.fills = [{ type: "SOLID", color: hexToRGB01(base) }];
 
-// Contenu du header (transparent !)
-var headerContent = figma.createFrame();
-headerContent.name = "HeaderContent";
-headerContent.layoutMode = "HORIZONTAL";
-headerContent.primaryAxisSizingMode = "AUTO";
-headerContent.counterAxisSizingMode = "AUTO";
-headerContent.primaryAxisAlignItems = "SPACE_BETWEEN";
-headerContent.counterAxisAlignItems = "CENTER";
-headerContent.itemSpacing = 12;
-headerContent.paddingLeft = headerContent.paddingRight = 16;
-headerContent.paddingTop = headerContent.paddingBottom = 16;
-headerContent.fills = [];               // <<— important : pas de fond
-headerContent.strokes = [];
+    // Contenu du header (transparent !)
+    var headerContent = figma.createFrame();
+    headerContent.name = "HeaderContent";
+    headerContent.layoutMode = "HORIZONTAL";
+    headerContent.primaryAxisSizingMode = "AUTO";
+    headerContent.counterAxisSizingMode = "AUTO";
+    headerContent.primaryAxisAlignItems = "SPACE_BETWEEN";
+    headerContent.counterAxisAlignItems = "CENTER";
+    headerContent.itemSpacing = 12;
+    headerContent.paddingLeft = headerContent.paddingRight = 16;
+    headerContent.paddingTop = headerContent.paddingBottom = 16;
+    headerContent.fills = [];               // <<— important : pas de fond
+    headerContent.strokes = [];
 
-// Texte noir/blanc selon le contraste sur la 500
-var rBHead = contrastRatioHex(base, "#000000");
-var rWHead = contrastRatioHex(base, "#ffffff");
-var headFg = (rBHead >= rWHead) ? { r: 0, g: 0, b: 0 } : { r: 1, g: 1, b: 1 };
+    // Texte noir/blanc selon le contraste sur la 500
+    var rBHead = contrastRatioHex(base, "#000000");
+    var rWHead = contrastRatioHex(base, "#ffffff");
+    var headFg = (rBHead >= rWHead) ? { r: 0, g: 0, b: 0 } : { r: 1, g: 1, b: 1 };
 
-var t = createTextWithStyle(title, styles.bold);
-var code = createTextWithStyle(ensureHex(base).toUpperCase(), styles.infoSmall);
-t.fills = [{ type: "SOLID", color: headFg }];
-code.fills = [{ type: "SOLID", color: headFg }];
-t.textAlignVertical = "CENTER";
-code.textAlignVertical = "CENTER";
+    var t = createTextWithStyle(title, styles.bold);
+    var code = createTextWithStyle(ensureHex(base).toUpperCase(), styles.infoSmall);
+    t.fills = [{ type: "SOLID", color: headFg }];
+    code.fills = [{ type: "SOLID", color: headFg }];
+    t.textAlignVertical = "CENTER";
+    code.textAlignVertical = "CENTER";
 
-headerContent.appendChild(t);
-headerContent.appendChild(code);
-header.appendChild(headerContent);
-col.appendChild(header);
+    headerContent.appendChild(t);
+    headerContent.appendChild(code);
+    header.appendChild(headerContent);
+    col.appendChild(header);
+    // --- Rebind du fond du header sur la variable 500 de la marque
+    bindFillToColorVariableAsync(header, brandKey, 500);
 
-// sizing après append (si tu gardes cette convention)
-header.layoutSizingHorizontal = "FILL";
-header.layoutSizingVertical = "HUG";
-headerContent.layoutSizingHorizontal = "FILL";
-headerContent.layoutSizingVertical = "HUG";
+    // sizing après append (si tu gardes cette convention)
+    header.layoutSizingHorizontal = "FILL";
+    header.layoutSizingVertical = "HUG";
+    headerContent.layoutSizingHorizontal = "FILL";
+    headerContent.layoutSizingVertical = "HUG";
 
     // Lignes
     var steps = [25, 50, 100, 200, 300, 400, 500, 600, 700, 800, 900, 950];
     for (var i = 0; i < steps.length; i++) {
       var s = steps[i];
       var hex = scale[String(s)] || "#eeeeee";
-      var row = makeRow(s, hex, styles);
+      var row = makeRow(s, hex, styles, brandKey);
       col.appendChild(row);
 
       // ✅ après append
@@ -749,10 +824,10 @@ headerContent.layoutSizingVertical = "HUG";
     return col;
   }
 
-  root.appendChild(makeColumn(names.c1 || "Brand C1", gen.c1[500], gen.c1));
-  root.appendChild(makeColumn(names.c2 || "Brand C2", gen.c2[500], gen.c2));
-  root.appendChild(makeColumn(names.c3 || "Brand C3", gen.c3[500], gen.c3));
-  root.appendChild(makeColumn(names.neutral || "Brand Neutral", gen.neutral[500], gen.neutral));
+  root.appendChild(makeColumn(names.c1 || "Brand C1", gen.c1[500], gen.c1, "c1"));
+  root.appendChild(makeColumn(names.c2 || "Brand C2", gen.c2[500], gen.c2, "c2"));
+  root.appendChild(makeColumn(names.c3 || "Brand C3", gen.c3[500], gen.c3, "c3"));
+  root.appendChild(makeColumn(names.neutral || "Brand Neutral", gen.neutral[500], gen.neutral, "neutral"));
 
   var c = figma.viewport.center;
   root.x = Math.round(c.x - root.width / 2);
@@ -784,8 +859,55 @@ figma.ui.onmessage = function (msg) {
       return;
     }
 
-   // --- Ci dessous la version qui marche en mode local
-   /*  if (msg.type === "REPLACE_VARIABLES") {
+    // --- Ci dessous la version qui marche en mode local
+    /*  if (msg.type === "REPLACE_VARIABLES") {
+       var c1r = (msg.payload && msg.payload.c1) || "#000000";
+       var c2r = (msg.payload && msg.payload.c2) || "#000000";
+       var c3r = (msg.payload && msg.payload.c3) || "#000000";
+ 
+       var neutralUnlocked = !!(msg.payload && msg.payload.neutralUnlocked === true);
+       var neutralManual = (msg.payload && msg.payload.neutralManual) || null;
+ 
+       var gen = buildCssVars(c1r, c2r, c3r, {
+         neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
+       });
+ 
+       var s = replaceVariablesInCollection(gen);
+       figma.notify("Variables: " + s.updated + " mises à jour, " + s.created + " créées");
+       reply({ type: "OK", payload: { note: "Variables remplacées" } });
+       return;
+     } */
+
+    /*  if (msg.type === "GENERATE_FRAMES") {
+       if (msg.type === "GENERATE_FRAMES") {
+         // Recalcule les palettes comme pour GENERATE/REPLACE_VARIABLES
+         var c1g = (msg.payload && msg.payload.c1) || "#000000";
+         var c2g = (msg.payload && msg.payload.c2) || "#000000";
+         var c3g = (msg.payload && msg.payload.c3) || "#000000";
+ 
+         var neutralUnlocked = !!(msg.payload && msg.payload.neutralUnlocked === true);
+         var neutralManual = (msg.payload && msg.payload.neutralManual) || null;
+ 
+         var gen = buildCssVars(c1g, c2g, c3g, {
+           neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
+         });
+ 
+         // Utilise la fonction qui sait déjà tout construire avec auto-layout
+         // (et qui choisit la bonne couleur de texte sur le header en fonction du 500)
+         generatePaletteFrames(gen, {
+           c1: "Brand C1",
+           c2: "Brand C2",
+           c3: "Brand C3",
+           neutral: "Brand Neutral"
+         });
+ 
+         return;
+       }
+     } */
+
+
+    /* Ci-dessus la version qui marche en local, en ci-dessous celle que devrait marcher publiée*/
+    if (msg.type === "REPLACE_VARIABLES") {
       var c1r = (msg.payload && msg.payload.c1) || "#000000";
       var c2r = (msg.payload && msg.payload.c2) || "#000000";
       var c3r = (msg.payload && msg.payload.c3) || "#000000";
@@ -797,15 +919,25 @@ figma.ui.onmessage = function (msg) {
         neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
       });
 
-      var s = replaceVariablesInCollection(gen);
-      figma.notify("Variables: " + s.updated + " mises à jour, " + s.created + " créées");
-      reply({ type: "OK", payload: { note: "Variables remplacées" } });
+      overwriteGlobalsColorsAsync(gen).then(function (res) {
+        if (res && res.noCollection) return; // déjà notifié
+        var msgTxt = "Variables mises à jour : " + res.updated;
+        if (res.missing > 0) msgTxt += " · introuvables : " + res.missing + " (non créées)";
+        figma.notify(msgTxt);
+        reply({ type: "OK", payload: res });
+      }).catch(function (err) {
+        figma.notify("Replace failed: " + (err && err.message ? err.message : String(err)), { error: true });
+      });
       return;
-    } */
+    }
 
-   /*  if (msg.type === "GENERATE_FRAMES") {
-      if (msg.type === "GENERATE_FRAMES") {
-        // Recalcule les palettes comme pour GENERATE/REPLACE_VARIABLES
+    if (msg.type === "GENERATE_FRAMES") {
+      // Demander l'accès à la page avant de créer les frames
+      figma.skipInvisibleInstanceChildren = true;
+
+      // Vérifier si on a déjà accès à la page
+      if (figma.currentPage) {
+        // On a accès, on peut générer
         var c1g = (msg.payload && msg.payload.c1) || "#000000";
         var c2g = (msg.payload && msg.payload.c2) || "#000000";
         var c3g = (msg.payload && msg.payload.c3) || "#000000";
@@ -817,75 +949,18 @@ figma.ui.onmessage = function (msg) {
           neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
         });
 
-        // Utilise la fonction qui sait déjà tout construire avec auto-layout
-        // (et qui choisit la bonne couleur de texte sur le header en fonction du 500)
         generatePaletteFrames(gen, {
           c1: "Brand C1",
           c2: "Brand C2",
           c3: "Brand C3",
           neutral: "Brand Neutral"
         });
-
-        return;
+      } else {
+        figma.notify("Impossible d'accéder à la page");
       }
-    } */
 
-
-/* Ci-dessus la version qui marche en local, en ci-dessous celle que devrait marcher publiée*/
-if (msg.type === "REPLACE_VARIABLES") {
-  var c1r = (msg.payload && msg.payload.c1) || "#000000";
-  var c2r = (msg.payload && msg.payload.c2) || "#000000";
-  var c3r = (msg.payload && msg.payload.c3) || "#000000";
-
-  var neutralUnlocked = !!(msg.payload && msg.payload.neutralUnlocked === true);
-  var neutralManual   = (msg.payload && msg.payload.neutralManual) || null;
-
-  var gen = buildCssVars(c1r, c2r, c3r, {
-    neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
-  });
-
-  overwriteGlobalsColorsAsync(gen).then(function(res) {
-    if (res && res.noCollection) return; // déjà notifié
-    var msgTxt = "Variables mises à jour : " + res.updated;
-    if (res.missing > 0) msgTxt += " · introuvables : " + res.missing + " (non créées)";
-    figma.notify(msgTxt);
-    reply({ type: "OK", payload: res });
-  }).catch(function(err) {
-    figma.notify("Replace failed: " + (err && err.message ? err.message : String(err)), { error: true });
-  });
-  return;
-}
-
-   if (msg.type === "GENERATE_FRAMES") {
-  // Demander l'accès à la page avant de créer les frames
-  figma.skipInvisibleInstanceChildren = true;
-  
-  // Vérifier si on a déjà accès à la page
-  if (figma.currentPage) {
-    // On a accès, on peut générer
-    var c1g = (msg.payload && msg.payload.c1) || "#000000";
-    var c2g = (msg.payload && msg.payload.c2) || "#000000";
-    var c3g = (msg.payload && msg.payload.c3) || "#000000";
-
-    var neutralUnlocked = !!(msg.payload && msg.payload.neutralUnlocked === true);
-    var neutralManual = (msg.payload && msg.payload.neutralManual) || null;
-
-    var gen = buildCssVars(c1g, c2g, c3g, {
-      neutralBaseHex: (neutralUnlocked && neutralManual) ? ensureHex(neutralManual) : null
-    });
-
-    generatePaletteFrames(gen, {
-      c1: "Brand C1",
-      c2: "Brand C2", 
-      c3: "Brand C3",
-      neutral: "Brand Neutral"
-    });
-  } else {
-    figma.notify("Impossible d'accéder à la page");
-  }
-  
-  return;
-}
+      return;
+    }
 
     // Compat éventuelle anciens messages
     if (msg.type === "replace-variables") {
